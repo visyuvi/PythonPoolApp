@@ -44,8 +44,7 @@ WHITE = (255, 255, 255)
 # fonts
 font = pygame.font.SysFont("Lato", 30)
 largefont = pygame.font.SysFont("Lato", 60)
-
-
+game_running = True
 # load images
 cue_image = pygame.image.load("assets/images/cue.png").convert_alpha()
 
@@ -108,12 +107,12 @@ cushions = [
 
 # create six pockets on table
 pockets = [
-  (55, 63),
-  (592, 48),
-  (1134, 64),
-  (55, 616),
-  (592, 629),
-  (1134, 616)
+    (55, 63),
+    (592, 48),
+    (1134, 64),
+    (55, 616),
+    (592, 629),
+    (1134, 616)
 ]
 
 
@@ -201,7 +200,7 @@ while run:
             break
 
     # draw pool cue only if all balls are stationary
-    if taking_shot:
+    if taking_shot and game_running:
         # reposition the cue ball
         if cue_ball_potted:
             balls[-1].body.position = (888, SCREEN_HEIGHT / 2)
@@ -217,7 +216,7 @@ while run:
         cue.draw(screen)
 
     # power up pool cue
-    if powering_up:
+    if powering_up and game_running:
         force += 100 * force_direction  # increase force value in a given direcion
         if force >= max_force or force <= 0:
             force_direction *= -1
@@ -243,6 +242,16 @@ while run:
     # draw potted balls in BOTTOM PANEL
     for i, ball in enumerate(potted_balls):
         screen.blit(ball, (10 + i * 50, SCREEN_HEIGHT + 10))
+
+    # check for game over
+    if lives <= 0:
+        draw_text("GAME OVER", largefont, WHITE, SCREEN_WIDTH / 2 - 160, SCREEN_HEIGHT / 2 - 100)
+        game_running = False
+
+    # check if all balls are potted
+    if len(balls) == 1:
+        draw_text("YOU WIN", largefont, WHITE, SCREEN_WIDTH / 2 - 160, SCREEN_HEIGHT / 2 - 100)
+        game_running = False
 
     # event handler
     for event in pygame.event.get():
