@@ -8,8 +8,10 @@ pygame.init()
 SCREEN_WIDTH = 1200
 SCREEN_HEIGHT = 678
 
+BOTTOM_PANEL = 50
+
 # game window
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT + BOTTOM_PANEL))
 pygame.display.set_caption("Pool")
 
 # pymunk space
@@ -22,17 +24,27 @@ clock = pygame.time.Clock()
 FPS = 120
 
 # game variables
+lives = 3
 dia = 36
+pocket_dia = 66
 force = 0
 max_force = 10000
 force_direction = 1
 taking_shot = True
 powering_up = False
 cue_angle = 0
+potted_balls = []
+cue_ball_potted = False
 
 # colours
 BG = (50, 50, 50)
 RED = (255, 0, 0)
+WHITE = (255, 255, 255)
+
+# fonts
+font = pygame.font.SysFont("Lato", 30)
+largefont = pygame.font.SysFont("Lato", 60)
+
 
 # load images
 cue_image = pygame.image.load("assets/images/cue.png").convert_alpha()
@@ -42,6 +54,12 @@ ball_images = []
 for i in range(1, 17):
     ball_image = pygame.image.load(f"assets/images/ball_{i}.png").convert_alpha()
     ball_images.append(ball_image)
+
+
+# function to output text onto the screen
+def draw_text(text, font, text_col, x, y):
+    img = font.render(text, True, text_col)
+    screen.blit(img, (x, y))
 
 
 # function for creating balls
@@ -86,6 +104,16 @@ cushions = [
     [(622, 621), (630, 600), (1081, 600), (1102, 621)],
     [(56, 96), (77, 117), (77, 560), (56, 581)],
     [(1143, 96), (1122, 117), (1122, 560), (1143, 581)]
+]
+
+# create six pockets on table
+pockets = [
+  (55, 63),
+  (592, 48),
+  (1134, 64),
+  (55, 616),
+  (592, 629),
+  (1134, 616)
 ]
 
 
@@ -142,6 +170,25 @@ while run:
     # draw pool table
     screen.blit(table_image, (0, 0))
 
+    # check if any balls have been potted
+    for i, ball in enumerate(balls):
+        for pocket in pockets:
+            ball_x_dist = abs(ball.body.position[0] - pocket[0])
+            ball_y_dist = abs(ball.body.position[1] - pocket[1])
+            ball_distance = math.sqrt((ball_x_dist ** 2) + (ball_y_dist ** 2))
+            if ball_distance <= pocket_dia / 2:
+                # check if potted ball was the cue ball
+                if i == len(balls) - 1:
+                    lives -= 1
+                    cue_ball_potted = True
+                    ball.body.position = (-100, -100)
+                    ball.body.velocity = (0.0, 0.0)
+                else:
+                    space.remove(ball.body)
+                    balls.remove(ball)
+                    potted_balls.append(ball_images[i])
+                    ball_images.pop(i)
+
     # draw pool balls
     for i, ball in enumerate(balls):
         screen.blit(ball_images[i], (ball.body.position[0] - ball.radius, ball.body.position[1] - ball.radius))
@@ -155,6 +202,10 @@ while run:
 
     # draw pool cue only if all balls are stationary
     if taking_shot:
+        # reposition the cue ball
+        if cue_ball_potted:
+            balls[-1].body.position = (888, SCREEN_HEIGHT / 2)
+            cue_ball_potted = False
         # calculate pool cue angle
         mouse_pos = pygame.mouse.get_pos()
         cue.rect.center = balls[-1].body.position
@@ -172,7 +223,7 @@ while run:
             force_direction *= -1
 
         # draw power bars
-        for b in range(math.ceil(force/2000)):
+        for b in range(math.ceil(force / 2000)):
             screen.blit(power_bar, (balls[-1].body.position[0] - 30 + (b * 15),
                                     balls[-1].body.position[1] + 30))
 
@@ -183,6 +234,15 @@ while run:
         balls[-1].body.apply_impulse_at_local_point((force * -x_impulse, force * y_impulse), (0, 0))
         force = 0
         force_direction = 1
+
+    # draw bottom pannel
+    pygame.draw.rect(screen, BG, (0, SCREEN_HEIGHT, SCREEN_WIDTH, BOTTOM_PANEL))
+
+    draw_text("LIVES:" + str(lives), font, WHITE, SCREEN_WIDTH - 200, SCREEN_HEIGHT + 10)
+
+    # draw potted balls in BOTTOM PANEL
+    for i, ball in enumerate(potted_balls):
+        screen.blit(ball, (10 + i * 50, SCREEN_HEIGHT + 10))
 
     # event handler
     for event in pygame.event.get():
