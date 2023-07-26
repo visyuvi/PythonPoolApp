@@ -1,6 +1,7 @@
 import pygame
 import pymunk
 import pymunk.pygame_util
+import math
 
 pygame.init()
 
@@ -22,11 +23,19 @@ FPS = 120
 
 # game variables
 dia = 36
+force = 0
+max_force = 10000
+force_direction = 1
+taking_shot = True
+powering_up = False
+cue_angle = 0
 
 # colours
 BG = (50, 50, 50)
+RED = (255, 0, 0)
 
 # load images
+cue_image = pygame.image.load("assets/images/cue.png").convert_alpha()
 
 table_image = pygame.image.load("assets/images/table.png").convert_alpha()
 ball_images = []
@@ -93,11 +102,33 @@ def create_cushion(poly_dims):
 for c in cushions:
     create_cushion(c)
 
+
 # create pool cue
+class Cue:
+    def __init__(self, pos):
+        self.original_image = cue_image
+        self.angle = 0
+        self.image = pygame.transform.rotate(self.original_image, self.angle)
+        self.rect = self.image.get_rect()
+        self.rect.center = pos
+
+    def update(self, angle):
+        self.angle = angle
+
+    def draw(self, surface):
+        self.image = pygame.transform.rotate(self.original_image, self.angle)
+
+        surface.blit(self.image, (self.rect.centerx - self.image.get_width() / 2,
+                                  self.rect.centery - self.image.get_height() / 2))
+
+
+cue = Cue(balls[-1].body.position)
+
+# create power bar to show how hard the cue ball will be hit
+power_bar = pygame.Surface((10, 20))
+power_bar.fill(RED)
 
 # game loop
-
-
 run = True
 
 while run:
@@ -115,13 +146,53 @@ while run:
     for i, ball in enumerate(balls):
         screen.blit(ball_images[i], (ball.body.position[0] - ball.radius, ball.body.position[1] - ball.radius))
 
+    # check if all the balls have stopped moving
+    taking_shot = True
+    for ball in balls:
+        if int(ball.body.velocity[0]) != 0 or int(ball.body.velocity[1]) != 0:
+            taking_shot = False
+            break
+
+    # draw pool cue only if all balls are stationary
+    if taking_shot:
+        # calculate pool cue angle
+        mouse_pos = pygame.mouse.get_pos()
+        cue.rect.center = balls[-1].body.position
+        x_dist = balls[-1].body.position[0] - mouse_pos[0]
+        y_dist = -(balls[-1].body.position[1] - mouse_pos[1])  # -ve because pygame y coordinates
+        # increase down the screen
+        cue_angle = math.degrees(math.atan2(y_dist, x_dist))
+        cue.update(cue_angle)
+        cue.draw(screen)
+
+    # power up pool cue
+    if powering_up:
+        force += 100 * force_direction  # increase force value in a given direcion
+        if force >= max_force or force <= 0:
+            force_direction *= -1
+
+        # draw power bars
+        for b in range(math.ceil(force/2000)):
+            screen.blit(power_bar, (balls[-1].body.position[0] - 30 + (b * 15),
+                                    balls[-1].body.position[1] + 30))
+
+    elif not powering_up and taking_shot:
+        # take the shot
+        x_impulse = math.cos(math.radians(cue_angle))
+        y_impulse = math.sin(math.radians(cue_angle))
+        balls[-1].body.apply_impulse_at_local_point((force * -x_impulse, force * y_impulse), (0, 0))
+        force = 0
+        force_direction = 1
+
     # event handler
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
 
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            cue_ball.body.apply_impulse_at_local_point((-2500, 0), (0, 0))
+        if event.type == pygame.MOUSEBUTTONDOWN and taking_shot:
+            powering_up = True
+        if event.type == pygame.MOUSEBUTTONUP and taking_shot:
+            powering_up = False
 
     # space.debug_draw(draw_options)
     pygame.display.flip()
